@@ -87,11 +87,18 @@ struct TickContext {
     event_sender: broadcast::Sender<GameEvent>,
 }
 async fn on_price_tick(price: f64, timestamp: u64, context: &TickContext) {
+    let has_price_changed: bool;
     // update the latest tick in the shared state
     {
         let mut latest_tick = context.latest_tick.write().await;
+        has_price_changed = price != latest_tick.price;
+
         latest_tick.price = price;
         latest_tick.timestamp = timestamp;
+    }
+
+    if !has_price_changed {
+        return;
     }
 
     // TODO: update the game state here???
