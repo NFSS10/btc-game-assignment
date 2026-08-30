@@ -6,6 +6,7 @@ import type { Point } from "../types";
 
 type HookOptions = {
     initialPoint?: Point;
+    pointsUntilReady?: number;
     maxPoints?: number;
     updateIntervalMs?: number;
 };
@@ -15,10 +16,12 @@ type HookOptions = {
  * @returns An object containing the current points and a function to push the latest point.
  */
 const useSmoothedPriceLine = (options: HookOptions = {}) => {
-    const { initialPoint = { price: 0, timestamp: 0 }, maxPoints = 100, updateIntervalMs = 100 } = options;
+    const { initialPoint, pointsUntilReady = 0, maxPoints = 100, updateIntervalMs = 100 } = options;
 
-    const [points, setPoints] = useState<Point[]>([initialPoint]);
-    const latestPriceRef = useRef<number>(initialPoint.price);
+    const [points, setPoints] = useState<Point[]>(initialPoint ? [initialPoint] : []);
+    const latestPriceRef = useRef<number | null>(initialPoint ? initialPoint.price : null);
+
+    const isReady = points.length >= pointsUntilReady;
 
     const pushLatestPoint = useCallback(
         (point: Point) => {
@@ -36,6 +39,9 @@ const useSmoothedPriceLine = (options: HookOptions = {}) => {
     // push points at a regular interval
     useEffect(() => {
         const interval = window.setInterval(() => {
+            // if there's no latest price, don't push a point
+            if (latestPriceRef.current === null) return;
+
             pushLatestPoint({
                 price: latestPriceRef.current,
                 timestamp: Date.now()
@@ -47,7 +53,9 @@ const useSmoothedPriceLine = (options: HookOptions = {}) => {
 
     return {
         points,
-        pushLatestPoint
+        isReady,
+        pushLatestPoint,
+        setPoints
     };
 };
 

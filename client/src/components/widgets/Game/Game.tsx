@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { LineChart } from "@mantine/charts";
+import { Skeleton } from "@mantine/core";
 
 import { api } from "~/api";
 import type { PriceChangeEvent } from "~/api/game";
@@ -10,7 +11,7 @@ import { useSmoothedPriceLine } from "./hooks";
 type Props = {};
 
 export default function Game(props: Props) {
-    const { points, pushLatestPoint } = useSmoothedPriceLine();
+    const { points, isReady, pushLatestPoint } = useSmoothedPriceLine();
 
     const onPriceChange = useCallback(
         (event: PriceChangeEvent) => {
@@ -23,7 +24,9 @@ export default function Game(props: Props) {
     );
 
     useEffect(() => {
-        const subscription = api.game.subscribeToEvents({ onPriceChange });
+        const subscription = api.game.subscribeToEvents({
+            onPriceChange: onPriceChange
+        });
         return () => {
             subscription.unsubscribe();
         };
@@ -32,22 +35,25 @@ export default function Game(props: Props) {
     return (
         <div className={styles.game}>
             <h1>Game component!</h1>
-            <LineChart
-                className={styles.game}
-                h={140}
-                data={points}
-                dataKey="price"
-                series={[{ name: "price", color: "orange.6" }]}
-                curveType="natural"
-                withXAxis={false}
-                withYAxis={false}
-                withDots={false}
-                withTooltip={false}
-                gridAxis="none"
-                tickLine="none"
-                strokeWidth={2.4}
-                yAxisProps={{ domain: ["dataMin - 80", "dataMax + 80"] }}
-            />
+            <Skeleton visible={!isReady} height={500}>
+                <LineChart
+                    p={40}
+                    className={styles.game}
+                    h={500}
+                    data={points}
+                    dataKey="price"
+                    series={[{ name: "price", color: "orange.6" }]}
+                    curveType="natural"
+                    withXAxis={false}
+                    withYAxis={true}
+                    withDots={false}
+                    withTooltip={true}
+                    gridAxis="none"
+                    tickLine="none"
+                    strokeWidth={2.4}
+                    yAxisProps={{ domain: ["dataMin - 50", "dataMax + 50"] }}
+                />
+            </Skeleton>
         </div>
     );
 }
