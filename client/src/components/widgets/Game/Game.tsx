@@ -1,6 +1,7 @@
+import clsx from "clsx";
 import { useCallback, useEffect, useState } from "react";
 import { LineChart } from "@mantine/charts";
-import { Button, Group, List, Skeleton } from "@mantine/core";
+import { Button, Text, Group, List, Skeleton, Stack } from "@mantine/core";
 
 import { api } from "~/api";
 import type { GuessResolvedEvent, PriceChangeEvent, ScoreUpdateEvent } from "~/api/game";
@@ -9,9 +10,13 @@ import styles from "./styles.module.css";
 import { usePlayerSession, useSmoothedPriceLine } from "./hooks";
 import type { Guess } from "./types";
 
-type Props = {};
+type Props = {
+    className?: string;
+};
 
 export default function Game(props: Props) {
+    const { className } = props;
+
     const { points, isReady, pushLatestPoint } = useSmoothedPriceLine();
     const { session, isInitializing } = usePlayerSession();
 
@@ -21,6 +26,7 @@ export default function Game(props: Props) {
 
     const [isSubmittingGuess, setIsSubmittingGuess] = useState<boolean>(false);
 
+    const isLoading = isInitializing || !isReady;
     const canGuess = Boolean(session) && !isInitializing && !isSubmittingGuess;
 
     const onPriceChange = useCallback(
@@ -78,14 +84,14 @@ export default function Game(props: Props) {
         }
     };
     return (
-        <div className={styles.game}>
-            <Skeleton visible={isInitializing} height={600}>
-                <h1>Score: {score}</h1>
-                <h1>Live Price: {livePrice ?? "Loading..."}</h1>
-                <Skeleton visible={!isReady} height={500}>
+        <div className={clsx(styles.game, className)}>
+            <Skeleton visible={isLoading} height={400}>
+                <div className={styles.chartContainer}>
+                    <Text className={styles.livePrice}>{money(livePrice) ?? "Loading..."}</Text>
+                    <Text className={styles.score}>Score: {score}</Text>
                     <LineChart
                         className={styles.lineChart}
-                        h={500}
+                        h={400}
                         data={points}
                         dataKey="price"
                         series={[{ name: "price", color: "orange.6" }]}
@@ -99,23 +105,55 @@ export default function Game(props: Props) {
                         strokeWidth={4}
                         yAxisProps={{ domain: ["dataMin - 40", "dataMax + 40"] }}
                     />
-                </Skeleton>
-                <Group>
-                    <Button onClick={() => onSubmitGuess("up")} disabled={!canGuess} loading={isSubmittingGuess}>
+                </div>
+            </Skeleton>
+            <Stack>
+                <Group w="100%" justify="center" mt="md">
+                    <Button
+                        onClick={() => onSubmitGuess("up")}
+                        disabled={!canGuess}
+                        loading={isSubmittingGuess}
+                        color="green"
+                        size="lg"
+                        w="250"
+                    >
                         Up
                     </Button>
-                    <Button onClick={() => onSubmitGuess("down")} disabled={!canGuess} loading={isSubmittingGuess}>
+                    <Button
+                        onClick={() => onSubmitGuess("down")}
+                        disabled={!canGuess}
+                        loading={isSubmittingGuess}
+                        size="lg"
+                        color="red"
+                        w="250"
+                    >
                         Down
                     </Button>
                 </Group>
-                <List>
-                    {guesses.map(guess => (
-                        <List.Item key={guess.id}>
-                            {new Date(guess.createdAt).toLocaleTimeString()} - {guess.direction} - {guess.entryPrice}
-                        </List.Item>
-                    ))}
-                </List>
-            </Skeleton>
+                <Stack>
+                    <Text size="xl" fw={700}>
+                        Guesses:
+                    </Text>
+                    <List>
+                        {guesses.map(guess => (
+                            <List.Item key={guess.id}>
+                                {new Date(guess.createdAt).toLocaleTimeString()} - {guess.direction} -{" "}
+                                {guess.entryPrice}
+                            </List.Item>
+                        ))}
+                    </List>
+                </Stack>
+            </Stack>
         </div>
     );
 }
+
+const moneyFormatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD"
+});
+
+const money = (value: number | null) => {
+    if (value === null) return null;
+    return moneyFormatter.format(value);
+};

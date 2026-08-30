@@ -1,3 +1,25 @@
-.lineChart {
-    padding: 40px 40px 40px 40px;
+.chartContainer {
+    position: relative;
+}
+
+.chartContainer .livePrice {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.chartContainer .score {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.chartContainer .lineChart {
+    padding: 0px 40px 0px 40px;
 }
