@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { LineChart } from "@mantine/charts";
 import { Button, Text, Group, Skeleton, Stack } from "@mantine/core";
 
@@ -28,30 +28,39 @@ export default function Game(props: Props) {
     const [isSubmittingGuess, setIsSubmittingGuess] = useState<boolean>(false);
 
     const isLoading = isInitializing || !isReady;
-    const canGuess = Boolean(session) && !isInitializing && !isSubmittingGuess;
+    const hasPendingGuess = guesses.some(guess => !guess.resolvedAt);
+    const canGuess = Boolean(session) && !isInitializing && !isSubmittingGuess && !hasPendingGuess;
 
-    const onPriceChange = useCallback(
-        (event: PriceChangeEvent) => {
-            // update the live price
-            setLivePrice(event.price);
+    const onPriceChange = (event: PriceChangeEvent) => {
+        // update the live price
+        setLivePrice(event.price);
 
-            // push the latest point to the smoothed price line
-            pushLatestPoint({
-                price: event.price,
-                timestamp: event.timestamp
-            });
-        },
-        [pushLatestPoint]
-    );
+        // push the latest point to the smoothed price line
+        pushLatestPoint({
+            price: event.price,
+            timestamp: event.timestamp
+        });
+    };
 
-    const onGuessResolved = useCallback((event: GuessResolvedEvent) => {
-        console.log("Guess resolved event received:", event);
-    }, []);
+    const onGuessResolved = (event: GuessResolvedEvent) => {
+        setGuesses(prev =>
+            prev.map(guess =>
+                guess.id === event.guessId
+                    ? {
+                          ...guess,
+                          resolvedAt: event.resolvedAt,
+                          resolvedPrice: event.resolvedPrice,
+                          isCorrect: event.isCorrect
+                      }
+                    : guess
+            )
+        );
+    };
 
-    const onScoreUpdate = useCallback((event: ScoreUpdateEvent) => {
+    const onScoreUpdate = (event: ScoreUpdateEvent) => {
         console.log("Score update event received:", event);
         setScore(event.newScore);
-    }, []);
+    };
 
     useEffect(() => {
         const playerId = session?.playerId;
@@ -67,7 +76,7 @@ export default function Game(props: Props) {
         return () => {
             subscription.unsubscribe();
         };
-    }, [session?.playerId, onPriceChange, onGuessResolved, onScoreUpdate]);
+    }, [session?.playerId]);
 
     const onSubmitGuess = async (direction: "up" | "down") => {
         if (!canGuess) return;
