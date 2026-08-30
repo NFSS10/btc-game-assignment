@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use tokio::sync::{RwLock, watch};
+use tokio::sync::{RwLock, broadcast, watch};
 
 use super::price_feed::spawn_price_feed_ws;
-use super::types::{LatestTick, WsPriceEvent};
+use super::types::{GameEvent, WsPriceEvent, LatestTick};
 
 type SharedLatestTick = Arc<RwLock<LatestTick>>;
 
@@ -12,9 +12,13 @@ pub struct GameService {
     ws_event_receiver: kanal::AsyncReceiver<WsPriceEvent>,
 
     latest_tick: SharedLatestTick,
+    event_sender: broadcast::Sender<GameEvent>,
 }
 impl GameService {
     pub fn new(symbol: &str) -> Self {
+        // create a broadcast channel for the game events
+        let (event_sender, _) = broadcast::channel(1024);
+
         // create channel that will handle WS events from the price feed websocket
         let (ws_event_sender, ws_event_receiver) = kanal::unbounded_async::<WsPriceEvent>();
 
@@ -31,6 +35,7 @@ impl GameService {
             ws_shutdown_tx: ws_shutdown_tx,
             ws_event_receiver: ws_event_receiver,
             latest_tick: latest_tick,
+            event_sender: event_sender,
         }
     }
 
@@ -39,6 +44,7 @@ impl GameService {
         let ws_event_receiver = self.ws_event_receiver.clone();
         let context = TickContext {
             latest_tick: self.latest_tick.clone(),
+            event_sender: self.event_sender.clone(),
         };
         tokio::spawn(async move {
             while let Ok(event) = ws_event_receiver.recv().await {
@@ -60,6 +66,11 @@ impl GameService {
         }
     }
 
+    pub fn subscribe_events(&self) -> broadcast::Receiver<GameEvent> {
+        let receiver = self.event_sender.subscribe();
+        return receiver;
+    }
+
     pub fn destroy(&self) {
         let _ = self.ws_shutdown_tx.send(true);
     }
@@ -73,6 +84,7 @@ impl GameService {
 
 struct TickContext {
     latest_tick: SharedLatestTick,
+    event_sender: broadcast::Sender<GameEvent>,
 }
 async fn on_price_tick(price: f64, timestamp: u64, context: &TickContext) {
     // update the latest tick in the shared state
@@ -82,5 +94,9 @@ async fn on_price_tick(price: f64, timestamp: u64, context: &TickContext) {
         latest_tick.timestamp = timestamp;
     }
 
+    // TODO: update the game state here???
     println!("Price tick: {} at {}", price, timestamp);
+
+    // broadcast the price change event to all subscribers
+    let _ = context.event_sender.send(GameEvent::PriceChange { price, timestamp });
 }
