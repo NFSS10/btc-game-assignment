@@ -8,13 +8,13 @@ pub struct Model {
     pub id: i32,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
-    pub resolved_at: Option<DateTimeWithTimeZone>,
 
     pub player_id: Uuid,
 
     pub direction: GuessDirection,
-
     pub entry_price_scaled: i64,
+
+    pub resolved_at: Option<DateTimeWithTimeZone>,
     pub resolved_price_scaled: Option<i64>,
 }
 
