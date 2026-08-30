@@ -14,12 +14,17 @@ export default function Game(props: Props) {
     const { points, isReady, pushLatestPoint } = useSmoothedPriceLine();
     const { session, isInitializing } = usePlayerSession();
 
+    const [livePrice, setLivePrice] = useState<number | null>(null);
     const [score, setScore] = useState<number>(0);
 
     const canPlay = Boolean(session) && !isInitializing;
 
     const onPriceChange = useCallback(
         (event: PriceChangeEvent) => {
+            // update the live price
+            setLivePrice(event.price);
+
+            // push the latest point to the smoothed price line
             pushLatestPoint({
                 price: event.price,
                 timestamp: event.timestamp
@@ -57,6 +62,7 @@ export default function Game(props: Props) {
         <div className={styles.game}>
             <Skeleton visible={isInitializing} height={600}>
                 <h1>Score: {score}</h1>
+                <h1>Live Price: {livePrice ?? "Loading..."}</h1>
                 <Skeleton visible={!isReady} height={500}>
                     <LineChart
                         p={40}
