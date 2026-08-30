@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::{Duration, TimeZone, Utc};
+use lib::utils::number_scaler::NumberScaler;
 use migration::sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
 };
+use sea_orm::PaginatorTrait;
 use sea_orm::sea_query::Expr;
-use sea_orm::{IntoActiveModel, PaginatorTrait};
 use uuid::Uuid;
-use lib::utils::number_scaler::NumberScaler;
 
 use crate::db::config::PRICE_SCALE;
 use crate::db::schemas::guesses;
