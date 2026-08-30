@@ -97,7 +97,7 @@ export default function Game(props: Props) {
                         gridAxis="x"
                         tickLine="none"
                         strokeWidth={4}
-                        yAxisProps={{ domain: ["dataMin - 50", "dataMax + 50"] }}
+                        yAxisProps={{ domain: ["dataMin - 40", "dataMax + 40"] }}
                     />
                 </Skeleton>
                 <Group>
