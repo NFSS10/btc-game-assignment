@@ -22,7 +22,7 @@ type ScoreUpdateEvent = {
 type SubmitGuessResponse = {
     accepted: boolean;
     guess: {
-        id: string;
+        id: number;
         createdAt: number;
         entryPrice: number;
         direction: "up" | "down";

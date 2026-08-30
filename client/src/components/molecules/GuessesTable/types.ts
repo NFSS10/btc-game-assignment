@@ -1,5 +1,5 @@
 type Guess = {
-    id: string;
+    id: number;
     createdAt: number;
     entryPrice: number;
     direction: "up" | "down";
