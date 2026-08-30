@@ -32,3 +32,37 @@ args = ["compose", "-f", "compose.services.dev.yml", "down"]
 description = "Run server in development mode with hot reloading"
 command = "cargo"
 args = ["watch", "-x", "run"]
+
+
+
+[tasks.fmt]
+description = "Format the code"
+dependencies = ["fmt:server", "fmt:lib"]
+
+[tasks."fmt:server"]
+description = "Format the server code"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks."fmt:lib"]
+description = "Format the lib code"
+cwd = "lib"
+command = "cargo"
+args = ["fmt", "--all"]
+
+
+
+[tasks.test]
+description = "Run tests for server and lib"
+dependencies = ["test:server", "test:lib"]
+
+[tasks."test:server"]
+description = "Run server tests"
+command = "cargo"
+args = ["test", "--all-targets"]
+
+[tasks."test:lib"]
+description = "Run lib tests"
+cwd = "lib"
+command = "cargo"
+args = ["test", "--all-targets"]
