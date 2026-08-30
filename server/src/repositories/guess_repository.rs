@@ -14,8 +14,6 @@ use lib::utils::number_scaler::NumberScaler;
 
 type SharedNumberScaler = Arc<NumberScaler>;
 
-// TODO: register_guess is prone to race condition (not critical for the use case)
-
 #[derive(Clone)]
 pub struct GuessRepository {
     db: DatabaseConnection,
@@ -53,6 +51,10 @@ impl GuessRepository {
             GuessDirection::Down => guesses::GuessDirection::Down,
         };
 
+        // insert the guess into the database
+        // NOTE: Concurrency safety is enforced at DB level by a partial unique index:
+        // one unresolved guess per player (`resolved_at IS NULL`).
+        // See: m20260830_204715_only_one_unresolved_guess_per_player.rs
         let created = guesses::ActiveModel {
             player_id: Set(player_id),
             direction: Set(db_direction),
