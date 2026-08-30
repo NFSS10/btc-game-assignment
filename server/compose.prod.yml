@@ -1,0 +1,19 @@
+name: btc-game-server-prod
+
+services:
+  server:
+    image: btc-game-server:prod
+    build:
+      context: ./
+      dockerfile: ./prod.Dockerfile
+    ports:
+      - 9000:9000
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped

@@ -1,0 +1,8 @@
+target/
+tmp/
+logs/
+data/
+bin/
+
+.env
+Cargo.lock
