@@ -3,11 +3,4 @@ type Point = {
     timestamp: number;
 };
 
-type Guess = {
-    id: string;
-    createdAt: number;
-    entryPrice: number;
-    direction: "up" | "down";
-};
-
-export type { Point, Guess };
+export type { Point };

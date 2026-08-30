@@ -1,14 +1,15 @@
 import clsx from "clsx";
 import { useCallback, useEffect, useState } from "react";
 import { LineChart } from "@mantine/charts";
-import { Button, Text, Group, List, Skeleton, Stack } from "@mantine/core";
+import { Button, Text, Group, Skeleton, Stack } from "@mantine/core";
 
 import { api } from "~/api";
 import type { GuessResolvedEvent, PriceChangeEvent, ScoreUpdateEvent } from "~/api/game";
+import { GuessesTable } from "~/components/molecules";
+import type { Guess } from "~/components/molecules/GuessesTable/types";
 
 import styles from "./styles.module.css";
 import { usePlayerSession, useSmoothedPriceLine } from "./hooks";
-import type { Guess } from "./types";
 
 type Props = {
     className?: string;
@@ -130,19 +131,7 @@ export default function Game(props: Props) {
                         Down
                     </Button>
                 </Group>
-                <Stack>
-                    <Text size="xl" fw={700}>
-                        Guesses:
-                    </Text>
-                    <List>
-                        {guesses.map(guess => (
-                            <List.Item key={guess.id}>
-                                {new Date(guess.createdAt).toLocaleTimeString()} - {guess.direction} -{" "}
-                                {guess.entryPrice}
-                            </List.Item>
-                        ))}
-                    </List>
-                </Stack>
+                <GuessesTable className={styles.guessesTable} guesses={guesses} />
             </Stack>
         </div>
     );
