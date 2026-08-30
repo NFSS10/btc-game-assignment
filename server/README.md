@@ -71,10 +71,11 @@ cargo make dev:run
 
 ### Environment variables
 
-| Argument       | Required           | Description                 |
-| -------------- | ------------------ | --------------------------- |
-| `PORT`         | :x:                | The port the server runs on |
-| `DATABASE_URL` | :white_check_mark: | PostgreSQL database URI     |
+| Argument        | Required           | Description                                |
+| --------------- | ------------------ | ------------------------------------------ |
+| `PORT`          | :x:                | The port the server runs on                |
+| `DATABASE_URL`  | :white_check_mark: | PostgreSQL database URI                    |
+| `CRYPTO_SYMBOL` | :x:                | Cryptocurrency symbol (default: "BTCUSDT") |
 
 
 ### Other commands
