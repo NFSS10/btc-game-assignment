@@ -1,0 +1,18 @@
+[package]
+name = "lib"
+publish = false
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1.0.104"
+futures-util = "0.3.34"
+serde = { version = "1.0.229", features = ["derive"] }
+serde-this-or-that = "0.5.0"
+serde_json = "1.0.151"
+tokio = { version = "1.53.1", features = ["full"] }
+tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
+tokio-util = "0.7.19"
