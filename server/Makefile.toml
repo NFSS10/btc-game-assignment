@@ -1,0 +1,34 @@
+[config]
+default_to_workspace = false
+
+
+
+[tasks.setup]
+description = "Prepare project for development"
+dependencies = ["services:setup"]
+command = "cargo"
+args = ["build"]
+
+
+
+[tasks."services:setup"]
+description = "Pull Docker images for local services"
+command = "docker"
+args = ["compose", "-f", "compose.services.dev.yml", "pull"]
+
+[tasks."services:up"]
+description = "Start local services and wait until healthy"
+command = "docker"
+args = ["compose", "-f", "compose.services.dev.yml", "up"]
+
+[tasks."services:down"]
+description = "Stop local services"
+command = "docker"
+args = ["compose", "-f", "compose.services.dev.yml", "down"]
+
+
+
+[tasks."dev:run"]
+description = "Run server in development mode with hot reloading"
+command = "cargo"
+args = ["watch", "-x", "run"]
