@@ -24,7 +24,9 @@ const post = async <TResponse, TBody>(path: string, body?: TBody): Promise<TResp
     try {
         if (body !== undefined) reqInit.body = JSON.stringify(body);
     } catch (error) {
-        throw new Error(`Failed to serialize request body for ${path}: ${error}`);
+        throw new Error(`Failed to serialize request body for ${path}`, {
+            cause: error
+        });
     }
 
     const response = await fetch(`${SERVER_API_URL}${path}`, reqInit);
