@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 import { LineChart } from "@mantine/charts";
-import { Skeleton } from "@mantine/core";
+import { Button, Group, Skeleton } from "@mantine/core";
 
 import { api } from "~/api";
 import type { PriceChangeEvent } from "~/api/game";
@@ -32,6 +32,14 @@ export default function Game(props: Props) {
         };
     }, [onPriceChange]);
 
+    const onUpClick = () => {
+        console.log("Up button clicked");
+    };
+
+    const onDownClick = () => {
+        console.log("Down button clicked");
+    };
+
     return (
         <div className={styles.game}>
             <h1>Game component!</h1>
@@ -54,6 +62,10 @@ export default function Game(props: Props) {
                     yAxisProps={{ domain: ["dataMin - 50", "dataMax + 50"] }}
                 />
             </Skeleton>
+            <Group>
+                <Button onClick={onUpClick}>Up</Button>
+                <Button onClick={onDownClick}>Down</Button>
+            </Group>
         </div>
     );
 }
