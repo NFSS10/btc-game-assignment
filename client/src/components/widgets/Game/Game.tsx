@@ -40,10 +40,8 @@ export default function Game(props: Props) {
     }
 
     const onPriceChange = (event: PriceChangeEvent) => {
-        // update the live price
         setLivePrice(event.price);
 
-        // push the latest point to the smoothed price line
         pushLatestPoint({
             price: event.price,
             timestamp: event.timestamp
@@ -66,7 +64,6 @@ export default function Game(props: Props) {
     };
 
     const onScoreUpdate = (event: ScoreUpdateEvent) => {
-        console.log("Score update event received:", event);
         setScore(event.newScore);
     };
 
