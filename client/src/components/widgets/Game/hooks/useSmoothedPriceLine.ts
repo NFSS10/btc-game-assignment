@@ -15,7 +15,7 @@ type HookOptions = {
  * @returns An object containing the current points and a function to push the latest point.
  */
 const useSmoothedPriceLine = (options: HookOptions = {}) => {
-    const { initialPoint = { price: 0, timestamp: Date.now() }, maxPoints = 100, updateIntervalMs = 100 } = options;
+    const { initialPoint = { price: 0, timestamp: 0 }, maxPoints = 100, updateIntervalMs = 100 } = options;
 
     const [points, setPoints] = useState<Point[]>([initialPoint]);
     const latestPriceRef = useRef<number>(initialPoint.price);
