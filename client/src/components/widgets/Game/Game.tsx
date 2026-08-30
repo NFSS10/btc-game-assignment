@@ -47,11 +47,12 @@ export default function Game(props: Props) {
     }, []);
 
     useEffect(() => {
-        if (!session?.playerId) return;
+        const playerId = session?.playerId;
+        if (!playerId) return;
 
         setScore(session.score);
 
-        const subscription = api.game.subscribeToEvents({
+        const subscription = api.game.subscribeToEvents(playerId, {
             onPriceChange: onPriceChange,
             onGuessResolved: onGuessResolved,
             onScoreUpdate: onScoreUpdate

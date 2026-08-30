@@ -9,10 +9,10 @@ type SubscribeToEventsOptions = {
     onGuessResolved?: (event: GuessResolvedEvent) => void;
     onScoreUpdate?: (event: ScoreUpdateEvent) => void;
 };
-const subscribeToEvents = (options: SubscribeToEventsOptions = {}): SseSubscription => {
+const subscribeToEvents = (playerId: string, options: SubscribeToEventsOptions = {}): SseSubscription => {
     const { onOpen, onError, onPriceChange, onGuessResolved, onScoreUpdate } = options;
 
-    const subscription = subscribeToSse("/game/events", {
+    const subscription = subscribeToSse(`/game/events?playerId=${playerId}`, {
         handlers: {
             onOpen: onOpen,
             onError: onError,
