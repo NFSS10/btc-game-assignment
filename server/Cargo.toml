@@ -8,6 +8,7 @@ anyhow = "1.0.104"
 axum = { version = "0.8.9" }
 chrono = "0.4.45"
 dotenv = "0.15.0"
+futures-util = "0.3.34"
 kanal = "0.1.1"
 lib = { path = "./lib" }
 migration = { path = "./migration" }

@@ -10,12 +10,14 @@ use migration::sea_orm::{Database, DatabaseConnection};
 use migration::{Migrator, MigratorTrait};
 use std::env;
 use tokio::signal;
+use tokio::sync::watch;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::services::game_service::GameService;
 
 #[derive(Clone)]
 pub struct AppState {
+    global_shutdown_rx: watch::Receiver<bool>,
     db: DatabaseConnection,
     game_service: GameService,
 }
@@ -28,7 +30,10 @@ async fn main() {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set");
     let crypto_symbol = env::var("CRYPTO_SYMBOL").unwrap_or("BTCUSDT".to_string());
 
-    let (app, state) = create_app(&database_url, &crypto_symbol).await;
+    // global shutdown signal channel that can be used to signal all background tasks to shut down gracefully
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+
+    let (app, state) = create_app(&shutdown_rx, &database_url, &crypto_symbol).await;
 
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -41,13 +46,18 @@ async fn main() {
 
             // perform cleanup tasks here
             println!("Received shutdown signal, shutting down gracefully...");
+            let _ = shutdown_tx.send(true);
             state.game_service.destroy();
         })
         .await
         .unwrap();
 }
 
-async fn create_app(database_url: &str, crypto_symbol: &str) -> (Router, AppState) {
+async fn create_app(
+    shutdown_rx: &watch::Receiver<bool>,
+    database_url: &str,
+    crypto_symbol: &str,
+) -> (Router, AppState) {
     // ensure database_url starts with "postgres://"
     if !database_url.starts_with("postgres://") {
         panic!("Unexpected DATABASE_URL: {}", database_url);
@@ -76,6 +86,7 @@ async fn create_app(database_url: &str, crypto_symbol: &str) -> (Router, AppStat
     game_service.run().await;
 
     let state = AppState {
+        global_shutdown_rx: shutdown_rx.clone(),
         db: db,
         game_service: game_service,
     };

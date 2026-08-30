@@ -1,43 +1,52 @@
+use axum::Router;
 use axum::extract::State;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::get;
-use axum::Router;
+use futures_util::StreamExt;
 use serde_json::{Value, json};
 use std::convert::Infallible;
 use std::time::Duration;
+use tokio_stream::Stream;
 use tokio_stream::wrappers::BroadcastStream;
-use tokio_stream::{Stream, StreamExt};
 
 use crate::AppState;
 use crate::services::game_service::types::GameEvent;
 
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/events", get(game_events))
+    Router::new().route("/events", get(game_events))
 }
 
-async fn game_events(State(state): State<AppState>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+async fn game_events(
+    State(state): State<AppState>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     println!("Client connected to SSE events stream");
+
+    // create a shutdown signal future that resolves when the global shutdown signal is received
+    let mut shutdown_rx = state.global_shutdown_rx.clone();
+    let shutdown_signal = async move {
+        if !*shutdown_rx.borrow() {
+            let _ = shutdown_rx.changed().await;
+        }
+    };
 
     // subscribe to the game events broadcast channel
     let events_receiver = state.game_service.subscribe_events();
 
     // create a stream that converts the broadcast events into SSE events
+    // and stop when the shutdown signal is received
     let stream = BroadcastStream::new(events_receiver)
-        .filter_map(|result| result.ok())
-        .map(move |event| {
-            match event {
-                GameEvent::PriceChange { price, timestamp } => {
-                    let price_change_event = PriceChangeEvent { price, timestamp };
-                    let payload = json!({
-                        "price": price_change_event.price,
-                        "timestamp": price_change_event.timestamp,
-                    });
+        .filter_map(|result| async move { result.ok() })
+        .map(|event| match event {
+            GameEvent::PriceChange { price, timestamp } => {
+                let payload = json!({
+                    "price": price,
+                    "timestamp": timestamp,
+                });
 
-                    return Ok(json_event("price_change", payload));
-                }
+                Ok(json_event("price_change", payload))
             }
-        });
+        })
+        .take_until(shutdown_signal);
 
     // wrap the stream in an SSE response with a keep-alive ping every 15 seconds
     return Sse::new(stream).keep_alive(
@@ -48,9 +57,7 @@ async fn game_events(State(state): State<AppState>) -> Sse<impl Stream<Item = Re
 }
 
 fn json_event(event: &str, json_value: Value) -> Event {
-    Event::default()
-        .event(event)
-        .data(json_value.to_string())
+    Event::default().event(event).data(json_value.to_string())
 }
 
 #[derive(Debug, Clone)]
@@ -58,4 +65,3 @@ struct PriceChangeEvent {
     price: f64,
     timestamp: u64,
 }
-

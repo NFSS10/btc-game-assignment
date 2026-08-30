@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast, watch};
 
 use super::price_feed::spawn_price_feed_ws;
-use super::types::{GameEvent, WsPriceEvent, LatestTick};
+use super::types::{GameEvent, LatestTick, WsPriceEvent};
 
 type SharedLatestTick = Arc<RwLock<LatestTick>>;
 
@@ -98,5 +98,7 @@ async fn on_price_tick(price: f64, timestamp: u64, context: &TickContext) {
     println!("Price tick: {} at {}", price, timestamp);
 
     // broadcast the price change event to all subscribers
-    let _ = context.event_sender.send(GameEvent::PriceChange { price, timestamp });
+    let _ = context
+        .event_sender
+        .send(GameEvent::PriceChange { price, timestamp });
 }
