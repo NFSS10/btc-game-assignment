@@ -1,19 +1,59 @@
-use axum::Router;
 use axum::extract::State;
+use axum::http::StatusCode;
 use axum::response::sse::{Event, KeepAlive, Sse};
-use axum::routing::get;
+use axum::routing::{get, post};
+use axum::{Json, Router};
 use futures_util::StreamExt;
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::convert::Infallible;
 use std::time::Duration;
 use tokio_stream::Stream;
 use tokio_stream::wrappers::BroadcastStream;
+use uuid::Uuid;
 
 use crate::AppState;
+use crate::domain::guess::{GuessDirection, SubmittedGuess};
 use crate::services::game_service::types::GameEvent;
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/events", get(game_events))
+    Router::new()
+        .route("/guess", post(guess))
+        .route("/events", get(game_events))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GuessBody {
+    player_id: Uuid,
+    direction: GuessDirection,
+}
+
+#[derive(Debug, Serialize)]
+struct GuessResponse {
+    pub accepted: bool,
+    pub guess: Option<SubmittedGuess>,
+}
+
+async fn guess(
+    State(state): State<AppState>,
+    Json(body): Json<GuessBody>,
+) -> Result<Json<GuessResponse>, StatusCode> {
+    println!("Received guess request: {:?}", body);
+
+    let guess_opt: Option<SubmittedGuess> = state
+        .game_service
+        .submit_guess(body.player_id, body.direction)
+        .await
+        .map_err(|err| {
+            eprintln!("submit guess error: {err}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    Ok(Json(GuessResponse {
+        accepted: guess_opt.is_some(),
+        guess: guess_opt,
+    }))
 }
 
 async fn game_events(

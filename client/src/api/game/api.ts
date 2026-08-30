@@ -1,6 +1,6 @@
 import type { SseSubscription } from "../types";
-import { subscribeToSse } from "../utils";
-import type { PriceChangeEvent } from "./types";
+import { post, subscribeToSse } from "../utils";
+import type { PriceChangeEvent, SubmitGuessResponse } from "./types";
 
 type SubscribeToEventsOptions = {
     onOpen?: () => void;
@@ -31,6 +31,15 @@ const subscribeToEvents = (options: SubscribeToEventsOptions = {}): SseSubscript
     return subscription;
 };
 
+type GuessBody = {
+    playerId: string;
+    direction: "up" | "down";
+};
+const submitGuess = async (playerId: string, direction: "up" | "down"): Promise<SubmitGuessResponse> => {
+    const response = await post<SubmitGuessResponse, GuessBody>("/game/guess", { playerId, direction });
+    return response;
+};
+
 const safeEventDataParse = <T>(event: MessageEvent): T | null => {
     try {
         return JSON.parse(event.data);
@@ -41,7 +50,8 @@ const safeEventDataParse = <T>(event: MessageEvent): T | null => {
 };
 
 const api = {
-    subscribeToEvents: subscribeToEvents
+    subscribeToEvents,
+    submitGuess
 };
 export { api };
 export type { SubscribeToEventsOptions };

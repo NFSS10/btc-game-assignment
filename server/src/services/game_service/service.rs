@@ -1,13 +1,23 @@
+use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast, watch};
+use uuid::Uuid;
 
 use super::price_feed::spawn_price_feed_ws;
 use super::types::{GameEvent, LatestTick, WsPriceEvent};
+use crate::domain::guess::{GuessDirection, SubmittedGuess};
+use crate::repositories::guess_repository::GuessRepository;
 
 type SharedLatestTick = Arc<RwLock<LatestTick>>;
 
+// TODO:
+// - need to handle the case where for some reason the server starts and there is guesses
+//   that are unresolved. We need to resolve them and determine if they were correct or not
+
 #[derive(Clone)]
 pub struct GameService {
+    guess_repository: GuessRepository,
+
     ws_shutdown_tx: watch::Sender<bool>,
     ws_event_receiver: kanal::AsyncReceiver<WsPriceEvent>,
 
@@ -15,7 +25,7 @@ pub struct GameService {
     event_sender: broadcast::Sender<GameEvent>,
 }
 impl GameService {
-    pub fn new(symbol: &str) -> Self {
+    pub fn new(symbol: &str, guess_repository: &GuessRepository) -> Self {
         // create a broadcast channel for the game events
         let (event_sender, _) = broadcast::channel(1024);
 
@@ -32,6 +42,7 @@ impl GameService {
         }));
 
         Self {
+            guess_repository: guess_repository.clone(),
             ws_shutdown_tx: ws_shutdown_tx,
             ws_event_receiver: ws_event_receiver,
             latest_tick: latest_tick,
@@ -64,6 +75,30 @@ impl GameService {
             }
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         }
+    }
+
+    /// Submit a guess for a player. Returns true if the guess was accepted, false if the player is in cooldown.
+    pub async fn submit_guess(
+        &self,
+        player_id: Uuid,
+        direction: GuessDirection,
+    ) -> Result<Option<SubmittedGuess>> {
+        let has_unresolved_guess = self
+            .guess_repository
+            .has_unresolved_guess(player_id)
+            .await?;
+        if has_unresolved_guess {
+            return Ok(None);
+        }
+
+        let latest_tick = self.get_latest_tick().await;
+
+        let submitted: SubmittedGuess = self
+            .guess_repository
+            .register_guess(player_id, direction, latest_tick.price)
+            .await?;
+
+        Ok(Some(submitted))
     }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<GameEvent> {

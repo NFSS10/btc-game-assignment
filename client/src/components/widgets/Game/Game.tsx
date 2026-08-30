@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { LineChart } from "@mantine/charts";
-import { Button, Group, Skeleton } from "@mantine/core";
+import { Button, Group, List, Skeleton } from "@mantine/core";
 
 import { api } from "~/api";
 import type { PriceChangeEvent } from "~/api/game";
 
 import styles from "./styles.module.css";
 import { usePlayerSession, useSmoothedPriceLine } from "./hooks";
+import type { Guess } from "./types";
 
 type Props = {};
 
@@ -16,8 +17,11 @@ export default function Game(props: Props) {
 
     const [livePrice, setLivePrice] = useState<number | null>(null);
     const [score, setScore] = useState<number>(0);
+    const [guesses, setGuesses] = useState<Guess[]>([]);
 
-    const canPlay = Boolean(session) && !isInitializing;
+    const [isSubmittingGuess, setIsSubmittingGuess] = useState<boolean>(false);
+
+    const canGuess = Boolean(session) && !isInitializing && !isSubmittingGuess;
 
     const onPriceChange = useCallback(
         (event: PriceChangeEvent) => {
@@ -46,18 +50,21 @@ export default function Game(props: Props) {
         };
     }, [session?.playerId, onPriceChange]);
 
-    const onUpClick = () => {
-        if (!canPlay) return;
+    const onSubmitGuess = async (direction: "up" | "down") => {
+        if (!canGuess) return;
 
-        console.log("Up button clicked");
+        setIsSubmittingGuess(true);
+        try {
+            const response = await api.game.submitGuess(session!.playerId, direction);
+            if (!response.accepted) return;
+
+            setGuesses(prev => [...prev, response.guess!]);
+        } catch (error) {
+            console.error("Error submitting guess:", error);
+        } finally {
+            setIsSubmittingGuess(false);
+        }
     };
-
-    const onDownClick = () => {
-        if (!canPlay) return;
-
-        console.log("Down button clicked");
-    };
-
     return (
         <div className={styles.game}>
             <Skeleton visible={isInitializing} height={600}>
@@ -65,8 +72,7 @@ export default function Game(props: Props) {
                 <h1>Live Price: {livePrice ?? "Loading..."}</h1>
                 <Skeleton visible={!isReady} height={500}>
                     <LineChart
-                        p={40}
-                        className={styles.game}
+                        className={styles.lineChart}
                         h={500}
                         data={points}
                         dataKey="price"
@@ -76,20 +82,27 @@ export default function Game(props: Props) {
                         withYAxis={true}
                         withDots={false}
                         withTooltip={true}
-                        gridAxis="none"
+                        gridAxis="x"
                         tickLine="none"
-                        strokeWidth={2.4}
+                        strokeWidth={4}
                         yAxisProps={{ domain: ["dataMin - 50", "dataMax + 50"] }}
                     />
                 </Skeleton>
                 <Group>
-                    <Button onClick={onUpClick} disabled={!canPlay}>
+                    <Button onClick={() => onSubmitGuess("up")} disabled={!canGuess} loading={isSubmittingGuess}>
                         Up
                     </Button>
-                    <Button onClick={onDownClick} disabled={!canPlay}>
+                    <Button onClick={() => onSubmitGuess("down")} disabled={!canGuess} loading={isSubmittingGuess}>
                         Down
                     </Button>
                 </Group>
+                <List>
+                    {guesses.map(guess => (
+                        <List.Item key={guess.id}>
+                            {new Date(guess.createdAt).toLocaleTimeString()} - {guess.direction} - {guess.entryPrice}
+                        </List.Item>
+                    ))}
+                </List>
             </Skeleton>
         </div>
     );

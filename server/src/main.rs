@@ -1,11 +1,13 @@
 mod db;
+mod domain;
+mod repositories;
 mod routes;
 mod services;
 
+use anyhow::Result;
 use axum::Router;
 use axum::http::Method;
 use dotenv::dotenv;
-use lib::binance::websockets::{TradeWebsocket, TradeWebsocketEvent};
 use migration::sea_orm::{Database, DatabaseConnection};
 use migration::{Migrator, MigratorTrait};
 use std::env;
@@ -13,6 +15,7 @@ use tokio::signal;
 use tokio::sync::watch;
 use tower_http::cors::{Any, CorsLayer};
 
+use crate::repositories::guess_repository::GuessRepository;
 use crate::services::game_service::GameService;
 use crate::services::player_service::PlayerService;
 
@@ -35,7 +38,9 @@ async fn main() {
     // global shutdown signal channel that can be used to signal all background tasks to shut down gracefully
     let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
-    let (app, state) = create_app(&shutdown_rx, &database_url, &crypto_symbol).await;
+    let (app, state) = create_app(&shutdown_rx, &database_url, &crypto_symbol)
+        .await
+        .expect("Failed to create app");
 
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
@@ -59,7 +64,7 @@ async fn create_app(
     shutdown_rx: &watch::Receiver<bool>,
     database_url: &str,
     crypto_symbol: &str,
-) -> (Router, AppState) {
+) -> Result<(Router, AppState)> {
     // ensure database_url starts with "postgres://"
     if !database_url.starts_with("postgres://") {
         panic!("Unexpected DATABASE_URL: {}", database_url);
@@ -83,8 +88,11 @@ async fn create_app(
     Migrator::up(&db, None).await.expect("Migration failed");
     println!("[startup] Migrations completed successfully");
 
+    // create repositories
+    let guess_repository = GuessRepository::new(&db)?;
+
     // create services
-    let game_service = GameService::new(crypto_symbol);
+    let game_service = GameService::new(crypto_symbol, &guess_repository);
     let player_service = PlayerService::new(&db);
     game_service.run().await;
 
@@ -104,5 +112,6 @@ async fn create_app(
         .merge(routes::router())
         .layer(cors)
         .with_state(state.clone());
-    return (app, state);
+
+    Ok((app, state))
 }
