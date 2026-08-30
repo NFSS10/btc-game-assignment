@@ -1,11 +1,13 @@
 import { MantineProvider } from "@mantine/core";
 
+import { Game } from "~/components/widgets";
+
 import "@mantine/core/styles.css";
 
 function App() {
     return (
         <MantineProvider>
-            <h1>Hello World!</h1>
+            <Game />
         </MantineProvider>
     );
 }
