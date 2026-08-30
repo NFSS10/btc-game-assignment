@@ -1,4 +1,4 @@
-import { Center, MantineProvider, Stack, Text, Title } from "@mantine/core";
+import { MantineProvider, Stack, Title } from "@mantine/core";
 
 import { Game } from "~/components/widgets";
 

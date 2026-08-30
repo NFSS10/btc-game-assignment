@@ -21,8 +21,10 @@ export default function Game(props: Props) {
     const { points, isReady, pushLatestPoint } = useSmoothedPriceLine();
     const { session, isInitializing } = usePlayerSession();
 
-    const [livePrice, setLivePrice] = useState<number | null>(null);
     const [score, setScore] = useState<number>(0);
+    const [prevSessionScore, setPrevSessionScore] = useState<number | null>(null);
+
+    const [livePrice, setLivePrice] = useState<number | null>(null);
     const [guesses, setGuesses] = useState<Guess[]>([]);
 
     const [isSubmittingGuess, setIsSubmittingGuess] = useState<boolean>(false);
@@ -30,6 +32,12 @@ export default function Game(props: Props) {
     const isLoading = isInitializing || !isReady;
     const hasPendingGuess = guesses.some(guess => !guess.resolvedAt);
     const canGuess = Boolean(session) && !isInitializing && !isSubmittingGuess && !hasPendingGuess;
+
+    // sync score when session finishes loading or changes
+    if (session?.score !== undefined && session.score !== prevSessionScore) {
+        setPrevSessionScore(session.score);
+        setScore(session.score);
+    }
 
     const onPriceChange = (event: PriceChangeEvent) => {
         // update the live price
@@ -66,8 +74,6 @@ export default function Game(props: Props) {
         const playerId = session?.playerId;
         if (!playerId) return;
 
-        setScore(session.score);
-
         const subscription = api.game.subscribeToEvents(playerId, {
             onPriceChange: onPriceChange,
             onGuessResolved: onGuessResolved,
@@ -76,6 +82,7 @@ export default function Game(props: Props) {
         return () => {
             subscription.unsubscribe();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session?.playerId]);
 
     const onSubmitGuess = async (direction: "up" | "down") => {

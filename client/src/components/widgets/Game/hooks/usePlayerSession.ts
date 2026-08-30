@@ -14,17 +14,24 @@ const usePlayerSession = () => {
     const [isInitializing, setIsInitializing] = useState(true);
 
     useEffect(() => {
-        setIsInitializing(true);
+        let isMounted = true;
 
         loadSession()
-            .then(session => {
-                setSession(session);
-                setIsInitializing(false);
+            .then(sessionData => {
+                if (isMounted) setSession(sessionData);
+            })
+            .catch(error => {
+                console.error("Failed to load player session:", error);
             })
             .finally(() => {
-                setIsInitializing(false);
+                if (isMounted) setIsInitializing(false);
             });
-    }, [loadSession]);
+
+        return () => {
+            // prevents updating state if the component unmounts mid-fetch
+            isMounted = false;
+        };
+    }, []);
 
     return {
         session,

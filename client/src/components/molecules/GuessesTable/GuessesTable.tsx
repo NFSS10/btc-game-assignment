@@ -1,4 +1,4 @@
-import { Stack, Table, Title, Text } from "@mantine/core";
+import { Stack, Table, Title } from "@mantine/core";
 
 import type { Guess } from "./types";
 import TableRow from "./TableRow";
