@@ -3,7 +3,7 @@ use migration::sea_orm::prelude::Uuid;
 use serde::Deserialize;
 
 use crate::AppState;
-use crate::services::player_service::types::PlayerState;
+use crate::domain::player::PlayerState;
 
 pub fn router() -> Router<AppState> {
     Router::new().route("/init", post(init))

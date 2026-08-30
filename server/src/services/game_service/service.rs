@@ -5,18 +5,17 @@ use uuid::Uuid;
 
 use super::price_feed::spawn_price_feed_ws;
 use super::types::{GameEvent, LatestTick, WsPriceEvent};
-use crate::domain::guess::{GuessDirection, SubmittedGuess};
+use crate::domain::guess::{GuessDirection, ResolvedGuess, SubmittedGuess};
+use crate::domain::player::PlayerState;
 use crate::repositories::guess_repository::GuessRepository;
+use crate::repositories::player_repository::PlayerRepository;
 
 type SharedLatestTick = Arc<RwLock<LatestTick>>;
-
-// TODO:
-// - need to handle the case where for some reason the server starts and there is guesses
-//   that are unresolved. We need to resolve them and determine if they were correct or not
 
 #[derive(Clone)]
 pub struct GameService {
     guess_repository: GuessRepository,
+    player_repository: PlayerRepository,
 
     ws_shutdown_tx: watch::Sender<bool>,
     ws_event_receiver: kanal::AsyncReceiver<WsPriceEvent>,
@@ -25,7 +24,7 @@ pub struct GameService {
     event_sender: broadcast::Sender<GameEvent>,
 }
 impl GameService {
-    pub fn new(symbol: &str, guess_repository: &GuessRepository) -> Self {
+    pub fn new(symbol: &str, guess_repo: &GuessRepository, player_repo: &PlayerRepository) -> Self {
         // create a broadcast channel for the game events
         let (event_sender, _) = broadcast::channel(1024);
 
@@ -42,7 +41,8 @@ impl GameService {
         }));
 
         Self {
-            guess_repository: guess_repository.clone(),
+            guess_repository: guess_repo.clone(),
+            player_repository: player_repo.clone(),
             ws_shutdown_tx: ws_shutdown_tx,
             ws_event_receiver: ws_event_receiver,
             latest_tick: latest_tick,
@@ -55,13 +55,20 @@ impl GameService {
         let ws_event_receiver = self.ws_event_receiver.clone();
         let context = TickContext {
             latest_tick: self.latest_tick.clone(),
+            guess_repository: self.guess_repository.clone(),
+            player_repository: self.player_repository.clone(),
             event_sender: self.event_sender.clone(),
         };
         tokio::spawn(async move {
             while let Ok(event) = ws_event_receiver.recv().await {
                 match event {
                     WsPriceEvent::Trade { price, timestamp } => {
-                        on_price_tick(price, timestamp, &context).await
+                        match on_price_tick(price, timestamp, &context).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                eprintln!("Error handling price tick: {:?}", e);
+                            }
+                        }
                     }
                 }
             }
@@ -119,9 +126,11 @@ impl GameService {
 
 struct TickContext {
     latest_tick: SharedLatestTick,
+    guess_repository: GuessRepository,
+    player_repository: PlayerRepository,
     event_sender: broadcast::Sender<GameEvent>,
 }
-async fn on_price_tick(price: f64, timestamp: u64, context: &TickContext) {
+async fn on_price_tick(price: f64, timestamp: u64, context: &TickContext) -> Result<()> {
     let has_price_changed: bool;
     // update the latest tick in the shared state
     {
@@ -133,14 +142,57 @@ async fn on_price_tick(price: f64, timestamp: u64, context: &TickContext) {
     }
 
     if !has_price_changed {
-        return;
+        return Ok(());
     }
 
-    // TODO: update the game state here???
-    println!("Price tick: {} at {}", price, timestamp);
+    // resolve any eligible guesses based on the new price tick
+    let resolved: Vec<ResolvedGuess> = context
+        .guess_repository
+        .resolve_eligible_guesses(price, timestamp)
+        .await?;
+
+    // broadcast the resolved guesses and update the player scores
+    // and update players scores based on the resolved guesses
+    for resolved_guess in resolved {
+        // broadcast the resolved guess event to all subscribers
+        let _ = context.event_sender.send(GameEvent::GuessResolved {
+            guess_state: resolved_guess.clone(),
+        });
+
+        // update the player score based on the resolved guess
+        let delta: i32 = match resolved_guess.is_correct {
+            true => 1,
+            false => -1,
+        };
+        let player_state: Option<PlayerState> = match context
+            .player_repository
+            .apply_score_delta(resolved_guess.player_id, delta)
+            .await
+        {
+            Ok(Some(state)) => Some(state),
+            Ok(None) => None,
+            Err(e) => {
+                eprintln!(
+                    "Error updating player score for player {}: {:?}",
+                    resolved_guess.player_id, e
+                );
+                None
+            }
+        };
+
+        // if the player state was updated, broadcast the score update event
+        if let Some(player_state) = player_state {
+            let _ = context.event_sender.send(GameEvent::ScoreUpdate {
+                player_id: player_state.id,
+                new_score: player_state.score,
+            });
+        }
+    }
 
     // broadcast the price change event to all subscribers
     let _ = context
         .event_sender
         .send(GameEvent::PriceChange { price, timestamp });
+
+    Ok(())
 }

@@ -1,14 +1,16 @@
 import type { SseSubscription } from "../types";
 import { post, subscribeToSse } from "../utils";
-import type { PriceChangeEvent, SubmitGuessResponse } from "./types";
+import type { PriceChangeEvent, SubmitGuessResponse, GuessResolvedEvent, ScoreUpdateEvent } from "./types";
 
 type SubscribeToEventsOptions = {
     onOpen?: () => void;
     onError?: (event: Event) => void;
     onPriceChange?: (event: PriceChangeEvent) => void;
+    onGuessResolved?: (event: GuessResolvedEvent) => void;
+    onScoreUpdate?: (event: ScoreUpdateEvent) => void;
 };
 const subscribeToEvents = (options: SubscribeToEventsOptions = {}): SseSubscription => {
-    const { onOpen, onError, onPriceChange } = options;
+    const { onOpen, onError, onPriceChange, onGuessResolved, onScoreUpdate } = options;
 
     const subscription = subscribeToSse("/game/events", {
         handlers: {
@@ -16,16 +18,27 @@ const subscribeToEvents = (options: SubscribeToEventsOptions = {}): SseSubscript
             onError: onError,
             onEvent: (name, event) => {
                 switch (name) {
-                    case "price_change":
+                    case "price_change": {
                         const data = safeEventDataParse<PriceChangeEvent>(event);
                         if (data) onPriceChange?.(data);
-                        break;
+                        return;
+                    }
+                    case "guess_resolved": {
+                        const data = safeEventDataParse<GuessResolvedEvent>(event);
+                        if (data) onGuessResolved?.(data);
+                        return;
+                    }
+                    case "score_update": {
+                        const data = safeEventDataParse<ScoreUpdateEvent>(event);
+                        if (data) onScoreUpdate?.(data);
+                        return;
+                    }
                     default:
                         console.warn(`Unhandled event: ${name}`, event);
                 }
             }
         },
-        events: ["price_change"]
+        events: ["price_change", "guess_resolved", "score_update"]
     });
 
     return subscription;

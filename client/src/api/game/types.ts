@@ -3,6 +3,22 @@ type PriceChangeEvent = {
     timestamp: number;
 };
 
+type GuessResolvedEvent = {
+    guessId: number;
+    playerId: string;
+    entryPrice: number;
+    direction: "up" | "down";
+    createdAt: number;
+    resolvedPrice: number;
+    resolvedAt: number;
+    isCorrect: boolean;
+};
+
+type ScoreUpdateEvent = {
+    playerId: string;
+    newScore: number;
+};
+
 type SubmitGuessResponse = {
     accepted: boolean;
     guess: {
@@ -13,4 +29,4 @@ type SubmitGuessResponse = {
     } | null;
 };
 
-export type { PriceChangeEvent, SubmitGuessResponse };
+export type { PriceChangeEvent, GuessResolvedEvent, ScoreUpdateEvent, SubmitGuessResponse };

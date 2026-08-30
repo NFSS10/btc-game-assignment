@@ -1,4 +1,4 @@
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::{get, post};
@@ -39,8 +39,6 @@ async fn guess(
     State(state): State<AppState>,
     Json(body): Json<GuessBody>,
 ) -> Result<Json<GuessResponse>, StatusCode> {
-    println!("Received guess request: {:?}", body);
-
     let guess_opt: Option<SubmittedGuess> = state
         .game_service
         .submit_guess(body.player_id, body.direction)
@@ -56,10 +54,18 @@ async fn guess(
     }))
 }
 
+#[derive(Debug, Deserialize)]
+struct EventsQuery {
+    #[serde(rename = "playerId")]
+    player_id: Option<Uuid>,
+}
+
 async fn game_events(
     State(state): State<AppState>,
+    Query(query): Query<EventsQuery>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    println!("Client connected to SSE events stream");
+    // extract the player_id from the query parameters
+    let player_id = query.player_id;
 
     // create a shutdown signal future that resolves when the global shutdown signal is received
     let mut shutdown_rx = state.global_shutdown_rx.clone();
@@ -76,14 +82,55 @@ async fn game_events(
     // and stop when the shutdown signal is received
     let stream = BroadcastStream::new(events_receiver)
         .filter_map(|result| async move { result.ok() })
+        .filter(move |event| {
+            let should_send = match event {
+                // everyone receives global price changes
+                GameEvent::PriceChange { .. } => true,
+
+                // Only send to the matching player (if player_id was supplied)
+                GameEvent::GuessResolved { guess_state } => {
+                    Some(guess_state.player_id) == player_id
+                }
+                GameEvent::ScoreUpdate {
+                    player_id: event_player_id,
+                    ..
+                } => Some(*event_player_id) == player_id,
+            };
+            async move { should_send }
+        })
         .map(|event| match event {
             GameEvent::PriceChange { price, timestamp } => {
                 let payload = json!({
                     "price": price,
                     "timestamp": timestamp,
                 });
-
                 Ok(json_event("price_change", payload))
+            }
+            GameEvent::GuessResolved { guess_state } => {
+                let payload = json!({
+                    "guessId": guess_state.guess_id,
+                    "playerId": guess_state.player_id,
+                    "entryPrice": guess_state.entry_price,
+                    "direction": match guess_state.direction {
+                        GuessDirection::Up => "up",
+                        GuessDirection::Down => "down",
+                    },
+                    "createdAt": guess_state.created_at,
+                    "resolvedPrice": guess_state.resolved_price,
+                    "resolvedAt": guess_state.resolved_at,
+                    "isCorrect": guess_state.is_correct,
+                });
+                Ok(json_event("guess_resolved", payload))
+            }
+            GameEvent::ScoreUpdate {
+                player_id,
+                new_score,
+            } => {
+                let payload = json!({
+                    "playerId": player_id,
+                    "newScore": new_score,
+                });
+                Ok(json_event("score_update", payload))
             }
         })
         .take_until(shutdown_signal);
@@ -98,10 +145,4 @@ async fn game_events(
 
 fn json_event(event: &str, json_value: Value) -> Event {
     Event::default().event(event).data(json_value.to_string())
-}
-
-#[derive(Debug, Clone)]
-struct PriceChangeEvent {
-    price: f64,
-    timestamp: u64,
 }

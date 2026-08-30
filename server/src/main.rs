@@ -16,6 +16,7 @@ use tokio::sync::watch;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::repositories::guess_repository::GuessRepository;
+use crate::repositories::player_repository::PlayerRepository;
 use crate::services::game_service::GameService;
 use crate::services::player_service::PlayerService;
 
@@ -90,10 +91,11 @@ async fn create_app(
 
     // create repositories
     let guess_repository = GuessRepository::new(&db)?;
+    let player_repository = PlayerRepository::new(&db);
 
     // create services
-    let game_service = GameService::new(crypto_symbol, &guess_repository);
-    let player_service = PlayerService::new(&db);
+    let game_service = GameService::new(crypto_symbol, &guess_repository, &player_repository);
+    let player_service = PlayerService::new(&player_repository);
     game_service.run().await;
 
     let state = AppState {

@@ -1,6 +1,12 @@
+use uuid::Uuid;
+
+use crate::domain::guess::ResolvedGuess;
+
 /// Represents a game event that can be sent from the game service to its subscribers
 #[derive(Debug, Clone)]
 pub enum GameEvent {
+    GuessResolved { guess_state: ResolvedGuess },
+    ScoreUpdate { player_id: Uuid, new_score: i32 },
     PriceChange { price: f64, timestamp: u64 },
 }
 

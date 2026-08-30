@@ -3,7 +3,7 @@ import { LineChart } from "@mantine/charts";
 import { Button, Group, List, Skeleton } from "@mantine/core";
 
 import { api } from "~/api";
-import type { PriceChangeEvent } from "~/api/game";
+import type { GuessResolvedEvent, PriceChangeEvent, ScoreUpdateEvent } from "~/api/game";
 
 import styles from "./styles.module.css";
 import { usePlayerSession, useSmoothedPriceLine } from "./hooks";
@@ -37,18 +37,29 @@ export default function Game(props: Props) {
         [pushLatestPoint]
     );
 
+    const onGuessResolved = useCallback((event: GuessResolvedEvent) => {
+        console.log("Guess resolved event received:", event);
+    }, []);
+
+    const onScoreUpdate = useCallback((event: ScoreUpdateEvent) => {
+        console.log("Score update event received:", event);
+        setScore(event.newScore);
+    }, []);
+
     useEffect(() => {
         if (!session?.playerId) return;
 
         setScore(session.score);
 
         const subscription = api.game.subscribeToEvents({
-            onPriceChange: onPriceChange
+            onPriceChange: onPriceChange,
+            onGuessResolved: onGuessResolved,
+            onScoreUpdate: onScoreUpdate
         });
         return () => {
             subscription.unsubscribe();
         };
-    }, [session?.playerId, onPriceChange]);
+    }, [session?.playerId, onPriceChange, onGuessResolved, onScoreUpdate]);
 
     const onSubmitGuess = async (direction: "up" | "down") => {
         if (!canGuess) return;
