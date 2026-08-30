@@ -5,13 +5,14 @@ use chrono::{Duration, TimeZone, Utc};
 use migration::sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
 };
+use sea_orm::sea_query::Expr;
 use sea_orm::{IntoActiveModel, PaginatorTrait};
 use uuid::Uuid;
+use lib::utils::number_scaler::NumberScaler;
 
 use crate::db::config::PRICE_SCALE;
 use crate::db::schemas::guesses;
 use crate::domain::guess::{GuessDirection, ResolvedGuess, SubmittedGuess};
-use lib::utils::number_scaler::NumberScaler;
 
 type SharedNumberScaler = Arc<NumberScaler>;
 
@@ -73,7 +74,11 @@ impl GuessRepository {
         })
     }
 
-    pub async fn resolve_eligible_guesses(&self, current_price: f64, current_timestamp: u64) -> Result<Vec<ResolvedGuess>> {
+    pub async fn resolve_eligible_guesses(
+        &self,
+        current_price: f64,
+        current_timestamp: u64,
+    ) -> Result<Vec<ResolvedGuess>> {
         // scale the price to the same scale as the stored guesses
         let resolved_price_scaled = self.price_scaler.to_scaled_number(current_price)?;
 
@@ -82,7 +87,7 @@ impl GuessRepository {
             .timestamp_millis_opt(current_timestamp as i64)
             .single()
             .ok_or_else(|| anyhow::anyhow!("invalid current_timestamp millis"))?;
-    
+
         // calculate the cutoff timestamp for eligible guesses (older than 60 seconds)
         let cutoff = current_timestamp_date - Duration::seconds(60);
 
@@ -102,16 +107,34 @@ impl GuessRepository {
 
             let is_correct = match candidate.direction {
                 guesses::GuessDirection::Up => resolved_price_scaled > candidate.entry_price_scaled,
-                guesses::GuessDirection::Down => resolved_price_scaled < candidate.entry_price_scaled,
+                guesses::GuessDirection::Down => {
+                    resolved_price_scaled < candidate.entry_price_scaled
+                }
             };
 
-            // update the guess in the database to mark it as resolved
-            let mut active = candidate.clone().into_active_model();
-            active.resolved_at = Set(Some(current_timestamp_date.into()));
-            active.resolved_price_scaled = Set(Some(resolved_price_scaled));
-            active.update(&self.db).await?;
+            // update the guess in the database to mark it as resolved in a race condition safe way
+            let update_result = guesses::Entity::update_many()
+                .col_expr(
+                    guesses::Column::ResolvedAt,
+                    Expr::value(Some(current_timestamp_date)),
+                )
+                .col_expr(
+                    guesses::Column::ResolvedPriceScaled,
+                    Expr::value(Some(resolved_price_scaled)),
+                )
+                .filter(guesses::Column::Id.eq(candidate.id))
+                .filter(guesses::Column::ResolvedAt.is_null())
+                .exec(&self.db)
+                .await?;
 
-            let entry_price = self.price_scaler.from_scaled_number(candidate.entry_price_scaled)?;
+            // another worker/process resolved it first, so skip it
+            if update_result.rows_affected == 0 {
+                continue;
+            }
+
+            let entry_price = self
+                .price_scaler
+                .from_scaled_number(candidate.entry_price_scaled)?;
             let entry_direction = match candidate.direction {
                 guesses::GuessDirection::Up => GuessDirection::Up,
                 guesses::GuessDirection::Down => GuessDirection::Down,
@@ -132,5 +155,4 @@ impl GuessRepository {
 
         Ok(resolved)
     }
-
 }
