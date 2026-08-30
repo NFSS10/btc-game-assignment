@@ -14,12 +14,14 @@ use tokio::sync::watch;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::services::game_service::GameService;
+use crate::services::player_service::PlayerService;
 
 #[derive(Clone)]
 pub struct AppState {
     global_shutdown_rx: watch::Receiver<bool>,
     db: DatabaseConnection,
     game_service: GameService,
+    player_service: PlayerService,
 }
 
 #[tokio::main]
@@ -83,12 +85,14 @@ async fn create_app(
 
     // create services
     let game_service = GameService::new(crypto_symbol);
+    let player_service = PlayerService::new(&db);
     game_service.run().await;
 
     let state = AppState {
         global_shutdown_rx: shutdown_rx.clone(),
         db: db,
         game_service: game_service,
+        player_service: player_service,
     };
 
     let cors = CorsLayer::new()
