@@ -2,6 +2,8 @@
 
 Solution for the BTC game assignment.
 
+<img width="441" height="357" alt="imagem" src="https://github.com/user-attachments/assets/17e7c83a-0998-4429-942a-cb6882118b61" />
+
 
 ## Table of Contents
 
@@ -78,6 +80,12 @@ Demo url: https://staging.d2ji01t3bj2zly.amplifyapp.com/
 
 I built the docker image and deployed to one of my servers. As per the assignment instructions, the server connects to a database in AWS, in this case, a PostgreSQL database. The server can be accessed via https://btc-game-server.nfss10.com/health
 
+<img width="1173" height="533" alt="AWS database" src="https://github.com/user-attachments/assets/f062950f-cb30-4ad6-bdba-72530fd2b4de" />
+
+
 #### Client
 
 The client is deployed to AWS Amplify. The client can be accessed via https://staging.d2ji01t3bj2zly.amplifyapp.com/
+
+<img width="2356" height="930" alt="AWS Amplify deployement" src="https://github.com/user-attachments/assets/eef48ade-1b97-4ad7-a151-414a95ae991c" />
+
