@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use super::price_feed::spawn_price_feed_ws;
 use super::types::{GameEvent, LatestTick, WsPriceEvent};
-use crate::domain::guess::{GuessDirection, ResolvedGuess, SubmittedGuess};
+use crate::domain::guess::{GuessDetails, GuessDirection, ResolvedGuess, SubmittedGuess};
 use crate::domain::player::PlayerState;
 use crate::repositories::guess_repository::GuessRepository;
 use crate::repositories::player_repository::PlayerRepository;
@@ -106,6 +106,11 @@ impl GameService {
             .await?;
 
         Ok(Some(submitted))
+    }
+
+    pub async fn get_player_guesses(&self, player_id: Uuid) -> Result<Vec<GuessDetails>> {
+        let guesses = self.guess_repository.list_guesses(player_id).await?;
+        Ok(guesses)
     }
 
     pub fn subscribe_events(&self) -> broadcast::Receiver<GameEvent> {

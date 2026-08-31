@@ -14,30 +14,38 @@ import { usePlayerSession, useSmoothedPriceLine } from "./hooks";
 type Props = {
     className?: string;
 };
-
-export default function Game(props: Props) {
+export default function GameWrapper(props: Props) {
     const { className } = props;
 
-    const { points, isReady, pushLatestPoint } = useSmoothedPriceLine();
     const { session, isInitializing } = usePlayerSession();
 
-    const [score, setScore] = useState<number>(0);
-    const [prevSessionScore, setPrevSessionScore] = useState<number | null>(null);
+    if (isInitializing) return <Skeleton visible height={400} />;
+    if (!session) return <Text color="red">Failed to load player session</Text>;
 
+    const { playerId, score, initialGuesses } = session;
+
+    return <Game className={className} playerId={playerId} initialScore={score} initialGuesses={initialGuesses} />;
+}
+
+type GameProps = {
+    playerId: string;
+    initialScore: number;
+    initialGuesses: Guess[];
+    className?: string;
+};
+function Game(props: GameProps) {
+    const { playerId, initialScore, initialGuesses, className } = props;
+
+    const { points, isReady: isChartReady, pushLatestPoint } = useSmoothedPriceLine();
+
+    const [score, setScore] = useState<number>(initialScore);
     const [livePrice, setLivePrice] = useState<number | null>(null);
-    const [guesses, setGuesses] = useState<Guess[]>([]);
 
+    const [guesses, setGuesses] = useState<Guess[]>(initialGuesses);
     const [isSubmittingGuess, setIsSubmittingGuess] = useState<boolean>(false);
 
-    const isLoading = isInitializing || !isReady;
     const hasPendingGuess = guesses.some(guess => !guess.resolvedAt);
-    const canGuess = Boolean(session) && !isInitializing && !isSubmittingGuess && !hasPendingGuess;
-
-    // sync score when session finishes loading or changes
-    if (session?.score !== undefined && session.score !== prevSessionScore) {
-        setPrevSessionScore(session.score);
-        setScore(session.score);
-    }
+    const canGuess = !isSubmittingGuess && !hasPendingGuess;
 
     const onPriceChange = (event: PriceChangeEvent) => {
         setLivePrice(event.price);
@@ -68,9 +76,6 @@ export default function Game(props: Props) {
     };
 
     useEffect(() => {
-        const playerId = session?.playerId;
-        if (!playerId) return;
-
         const subscription = api.game.subscribeToEvents(playerId, {
             onPriceChange: onPriceChange,
             onGuessResolved: onGuessResolved,
@@ -80,14 +85,14 @@ export default function Game(props: Props) {
             subscription.unsubscribe();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [session?.playerId]);
+    }, [playerId]);
 
     const onSubmitGuess = async (direction: "up" | "down") => {
         if (!canGuess) return;
 
         setIsSubmittingGuess(true);
         try {
-            const response = await api.game.submitGuess(session!.playerId, direction);
+            const response = await api.game.submitGuess(playerId, direction);
             if (!response.accepted) return;
 
             setGuesses(prev => [...prev, response.guess!]);
@@ -99,7 +104,7 @@ export default function Game(props: Props) {
     };
     return (
         <div className={clsx(styles.game, className)}>
-            <Skeleton visible={isLoading} height={400}>
+            <Skeleton visible={!isChartReady} height={400}>
                 <div className={styles.chartContainer}>
                     <Text className={styles.livePrice}>{money(livePrice) ?? "Loading..."}</Text>
                     <Text className={styles.score}>Score: {score}</Text>

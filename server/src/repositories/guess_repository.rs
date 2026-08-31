@@ -6,13 +6,13 @@ use lib::utils::number_scaler::NumberScaler;
 use migration::sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
 };
-use sea_orm::PaginatorTrait;
 use sea_orm::sea_query::Expr;
+use sea_orm::{PaginatorTrait, QueryOrder};
 use uuid::Uuid;
 
 use crate::db::config::PRICE_SCALE;
 use crate::db::schemas::guesses;
-use crate::domain::guess::{GuessDirection, ResolvedGuess, SubmittedGuess};
+use crate::domain::guess::{GuessDetails, GuessDirection, ResolvedGuess, SubmittedGuess};
 
 type SharedNumberScaler = Arc<NumberScaler>;
 
@@ -154,5 +154,42 @@ impl GuessRepository {
         }
 
         Ok(resolved)
+    }
+
+    pub async fn list_guesses(&self, player_id: Uuid) -> Result<Vec<GuessDetails>> {
+        let db_guesses = guesses::Entity::find()
+            .filter(guesses::Column::PlayerId.eq(player_id))
+            .order_by_desc(guesses::Column::CreatedAt)
+            .all(&self.db)
+            .await?;
+
+        let guesses: Vec<GuessDetails> = db_guesses
+            .into_iter()
+            .map(|g| {
+                let entry_price = self.price_scaler.from_scaled_number(g.entry_price_scaled)?;
+
+                let resolved_price = match g.resolved_price_scaled {
+                    Some(scaled) => Some(self.price_scaler.from_scaled_number(scaled)?),
+                    None => None,
+                };
+
+                let direction = match g.direction {
+                    guesses::GuessDirection::Up => GuessDirection::Up,
+                    guesses::GuessDirection::Down => GuessDirection::Down,
+                };
+
+                Ok(GuessDetails {
+                    guess_id: g.id,
+                    player_id: g.player_id,
+                    entry_price,
+                    direction,
+                    created_at: g.created_at.timestamp_millis() as u64,
+                    resolved_price,
+                    resolved_at: g.resolved_at.map(|dt| dt.timestamp_millis() as u64),
+                })
+            })
+            .collect::<Result<Vec<GuessDetails>>>()?;
+
+        Ok(guesses)
     }
 }
