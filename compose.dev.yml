@@ -39,6 +39,8 @@ services:
     build:
       context: ./client
       dockerfile: dev.Dockerfile
+    depends_on:
+      - server
     ports:
       - 3000:3000
     volumes:
