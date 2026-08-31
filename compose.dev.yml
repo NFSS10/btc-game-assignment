@@ -1,0 +1,55 @@
+name: btc-game-dev
+
+services:
+  db:
+    image: postgres:17-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - btc_game_server_pgdata_dev:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: btc-game-db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d btc-game-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: dev.Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - 9000:9000
+    volumes:
+      - ./server:/app/server
+      - btc_game_server_target_cache:/app/server/target
+      - btc_game_server_cargo_registry_cache:/usr/local/cargo/registry
+    environment:
+      DATABASE_URL: ${SERVER_DATABASE_URL}
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: dev.Dockerfile
+    ports:
+      - 3000:3000
+    volumes:
+      - ./client:/app/client
+      - btc_game_client_node_modules_cache:/app/client/node_modules
+    environment:
+      VITE_SERVER_API_URL: ${CLIENT_SERVER_API_URL}
+    restart: unless-stopped
+
+volumes:
+  btc_game_server_pgdata_dev:
+  btc_game_server_target_cache:
+  btc_game_server_cargo_registry_cache:
+  btc_game_client_node_modules_cache:

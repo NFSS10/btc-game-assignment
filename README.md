@@ -3,9 +3,32 @@
 Solution for the BTC game assignment.
 
 
-## How to run
+## Table of Contents
 
-TODO
+- [Development](#development)
+  - [Installation](#installation)
+  - [How to run](#how-to-run)
+- [Approach and Design Decisions](#approach-and-design-decisions)
+- [Demo deployment](#demo-deployment)
+
+
+## Development
+
+### Installation
+
+1. Set up the environment variables:
+
+```bash
+cp .env.template .env
+```
+
+### How to run
+
+Simply run the following command to start the application:
+
+```bash
+docker compose -f ./compose.dev.yml up
+```
 
 
 ## Demo deployment
