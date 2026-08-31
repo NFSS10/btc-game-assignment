@@ -2,7 +2,7 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    routing::{post, get},
+    routing::{get, post},
 };
 use migration::sea_orm::prelude::Uuid;
 use serde::Deserialize;

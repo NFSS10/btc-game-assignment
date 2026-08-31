@@ -8,7 +8,7 @@ use anyhow::Result;
 use axum::Router;
 use axum::http::Method;
 use dotenv::dotenv;
-use migration::sea_orm::{Database, DatabaseConnection};
+use migration::sea_orm::Database;
 use migration::{Migrator, MigratorTrait};
 use std::env;
 use tokio::signal;
@@ -23,7 +23,6 @@ use crate::services::player_service::PlayerService;
 #[derive(Clone)]
 pub struct AppState {
     global_shutdown_rx: watch::Receiver<bool>,
-    db: DatabaseConnection,
     game_service: GameService,
     player_service: PlayerService,
 }
@@ -100,7 +99,6 @@ async fn create_app(
 
     let state = AppState {
         global_shutdown_rx: shutdown_rx.clone(),
-        db: db,
         game_service: game_service,
         player_service: player_service,
     };
