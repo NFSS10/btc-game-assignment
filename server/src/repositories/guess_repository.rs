@@ -166,6 +166,14 @@ impl GuessRepository {
         let guesses: Vec<GuessDetails> = db_guesses
             .into_iter()
             .map(|g| {
+                let is_correct_opt = match (g.resolved_price_scaled, g.entry_price_scaled) {
+                    (Some(resolved), entry) => Some(match g.direction {
+                        guesses::GuessDirection::Up => resolved > entry,
+                        guesses::GuessDirection::Down => resolved < entry,
+                    }),
+                    (None, _) => None,
+                };
+
                 let entry_price = self.price_scaler.from_scaled_number(g.entry_price_scaled)?;
 
                 let resolved_price = match g.resolved_price_scaled {
@@ -179,13 +187,14 @@ impl GuessRepository {
                 };
 
                 Ok(GuessDetails {
-                    guess_id: g.id,
+                    id: g.id,
                     player_id: g.player_id,
                     entry_price,
                     direction,
                     created_at: g.created_at.timestamp_millis() as u64,
                     resolved_price,
                     resolved_at: g.resolved_at.map(|dt| dt.timestamp_millis() as u64),
+                    is_correct: is_correct_opt
                 })
             })
             .collect::<Result<Vec<GuessDetails>>>()?;

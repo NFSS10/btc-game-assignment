@@ -34,11 +34,12 @@ pub struct ResolvedGuess {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GuessDetails {
-    pub guess_id: i32,
+    pub id: i32,
     pub player_id: Uuid,
     pub entry_price: f64,
     pub direction: GuessDirection,
     pub created_at: u64,
     pub resolved_price: Option<f64>,
     pub resolved_at: Option<u64>,
+    pub is_correct: Option<bool>,
 }
